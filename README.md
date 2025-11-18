@@ -1,4 +1,4 @@
-This fork adds "outcome" attributes for mterics.
+This fork adds status code tracking in recording request writer and "outcome" attributes for mterics.
 the "outcome" attribute allows us to easily filter by "success" or "failure".
 
 # otelchi
