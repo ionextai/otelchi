@@ -1,4 +1,4 @@
-module github.com/riandyrn/otelchi
+module github.com/ionext/otelchi
 
 go 1.22.0
 
@@ -6,6 +6,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/riandyrn/otelchi v0.12.2
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/metric v1.34.0

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
@@ -33,12 +34,17 @@ func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 			// execute next http handler
 			next.ServeHTTP(rrw.writer, r)
 
+			// determine success/failure
+			outcome := getOutcome(rrw.statusCode)
+
+			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
+
 			// record the response size
 			histogram.Record(
 				r.Context(),
 				int64(rrw.writtenBytes),
 				otelmetric.WithAttributes(
-					cfg.AttributesFunc(r)...,
+					attributes...,
 				),
 			)
 		})

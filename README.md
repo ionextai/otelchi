@@ -1,3 +1,6 @@
+This fork adds "outcome" attributes for mterics.
+the "outcome" attribute allows us to easily filter by "success" or "failure".
+
 # otelchi
 
 [![compatibility-test](https://github.com/riandyrn/otelchi/actions/workflows/compatibility-test.yaml/badge.svg)](https://github.com/riandyrn/otelchi/actions/workflows/compatibility-test.yaml)
@@ -15,13 +18,9 @@ Contributions are welcomed!
 ## Install
 
 ```bash
-$ go get github.com/riandyrn/otelchi
+$ go get github.com/ionext/otelchi
 ```
 
 ## Examples
 
 See [examples](./examples) for details.
-
-## Why Port This?
-
-I was planning to make this project as part of the Open Telemetry Go instrumentation project. However, based on [this comment](https://github.com/open-telemetry/opentelemetry-go-contrib/pull/986#issuecomment-941280855) they no longer accept new instrumentation. This is why I maintain this project here.

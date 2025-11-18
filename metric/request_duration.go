@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
@@ -27,11 +28,20 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// get recording response writer
+			rrw := getRRW(w)
+			defer putRRW(rrw)
+
 			// capture the start time of the request
 			startTime := time.Now()
 
 			// execute next http handler
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(rrw.writer, r)
+
+			// determine success/failure
+			outcome := getOutcome(rrw.statusCode)
+
+			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
 
 			// record the request duration
 			duration := time.Since(startTime)
@@ -39,7 +49,7 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 				r.Context(),
 				int64(duration.Milliseconds()),
 				otelmetric.WithAttributes(
-					cfg.AttributesFunc(r)...,
+					attributes...,
 				),
 			)
 		})
