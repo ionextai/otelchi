@@ -1,4 +1,4 @@
-module github.com/ionext/otelchi
+module github.com/ionextai/otelchi
 
 go 1.22.0
 
