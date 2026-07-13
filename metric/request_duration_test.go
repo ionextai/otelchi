@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/metric"
+	"github.com/ionextai/otelchi/metric"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
@@ -53,4 +54,60 @@ func TestRequestDurationMillis(t *testing.T) {
 	dp := hist.DataPoints[0]
 	assert.GreaterOrEqual(t, dp.Sum, int64(expLatencyInMillis))
 	assert.Equal(t, uint64(1), dp.Count)
+	assertHasAttribute(t, dp.Attributes, attribute.String("outcome", metric.Success))
+}
+
+func TestRequestDurationMillis_OutcomeFailure(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+
+	baseCfg := metric.NewBaseConfig("test-server", metric.WithMeterProvider(provider))
+	middleware := metric.NewRequestDurationMillis(baseCfg)
+
+	router := chi.NewRouter()
+	router.Use(middleware)
+	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/test", nil))
+
+	m := findMetric(t, collectMetrics(t, reader), "request_duration_millis")
+	hist, ok := m.Data.(metricdata.Histogram[int64])
+	require.True(t, ok)
+	require.Len(t, hist.DataPoints, 1)
+	assertHasAttribute(t, hist.DataPoints[0].Attributes, attribute.String("outcome", metric.Failure))
+}
+
+func TestRequestDurationMillis_WithFilter(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+
+	baseCfg := metric.NewBaseConfig(
+		"test-server",
+		metric.WithMeterProvider(provider),
+		metric.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/healthz" }),
+	)
+	middleware := metric.NewRequestDurationMillis(baseCfg)
+
+	handlerCalled := false
+	router := chi.NewRouter()
+	router.Use(middleware)
+	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	assert.True(t, handlerCalled)
+
+	rm := collectMetrics(t, reader)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == "request_duration_millis" {
+				t.Fatalf("expected no request_duration_millis datapoint for filtered request")
+			}
+		}
+	}
 }

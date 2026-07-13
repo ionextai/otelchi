@@ -48,3 +48,11 @@ func assertHasAttribute(t *testing.T, attrs attribute.Set, want attribute.KeyVal
 	require.True(t, ok)
 	assert.Equal(t, want.Value.AsString(), got.AsString())
 }
+
+func assertHasIntAttribute(t *testing.T, attrs attribute.Set, key attribute.Key, want int) {
+	t.Helper()
+
+	got, ok := attrs.Value(key)
+	require.True(t, ok)
+	assert.Equal(t, int64(want), got.AsInt64())
+}

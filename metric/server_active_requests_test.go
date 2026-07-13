@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/metric"
+	"github.com/ionextai/otelchi/metric"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -46,4 +46,36 @@ func TestServerActiveRequests(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, sum.DataPoints, 1)
 	assert.Equal(t, int64(0), sum.DataPoints[0].Value)
+}
+
+func TestServerActiveRequests_WithFilter(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	baseCfg := metric.NewBaseConfig(
+		"test-server",
+		metric.WithMeterProvider(provider),
+		metric.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/healthz" }),
+	)
+
+	handlerCalled := false
+	router := chi.NewRouter()
+	router.Use(metric.NewServerActiveRequests(baseCfg))
+	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	assert.True(t, handlerCalled)
+
+	rm := collectMetrics(t, reader)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == "http.server.active_requests" {
+				t.Fatalf("expected no http.server.active_requests datapoint for filtered request")
+			}
+		}
+	}
 }

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/metric"
+	"github.com/ionextai/otelchi/metric"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -50,4 +50,39 @@ func TestServerRequestBodySize(t *testing.T) {
 	assert.Equal(t, int64(len(requestBody)), dp.Sum)
 	assert.Equal(t, uint64(1), dp.Count)
 	assertHasAttribute(t, dp.Attributes, attribute.String("test.attr", "value"))
+}
+
+func TestServerRequestBodySize_WithFilter(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	baseCfg := metric.NewBaseConfig(
+		"test-server",
+		metric.WithMeterProvider(provider),
+		metric.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/healthz" }),
+	)
+
+	handlerCalled := false
+	router := chi.NewRouter()
+	router.Use(metric.NewServerRequestBodySize(baseCfg))
+	router.Post("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		_, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/healthz", strings.NewReader("body"))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.True(t, handlerCalled)
+
+	rm := collectMetrics(t, reader)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == "http.server.request.body.size" {
+				t.Fatalf("expected no http.server.request.body.size datapoint for filtered request")
+			}
+		}
+	}
 }

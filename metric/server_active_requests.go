@@ -26,6 +26,11 @@ func NewServerActiveRequests(cfg BaseConfig) func(next http.Handler) http.Handle
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			attrs := otelmetric.WithAttributes(cfg.AttributesFunc(r)...)
 
 			counter.Add(r.Context(), 1, attrs)

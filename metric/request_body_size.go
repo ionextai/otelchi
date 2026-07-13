@@ -42,6 +42,11 @@ func NewServerRequestBodySize(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			var rb *recordingRequestBody
 			if r.Body != nil && r.Body != http.NoBody {
 				rb = &recordingRequestBody{body: r.Body}

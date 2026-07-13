@@ -29,6 +29,11 @@ func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// define metric attributes
 			attrs := otelmetric.WithAttributes(cfg.AttributesFunc(r)...)
 

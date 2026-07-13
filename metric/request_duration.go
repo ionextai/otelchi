@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ionextai/otelchi/internal/respwriter"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -29,18 +30,23 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// get recording response writer
-			rrw := getRRW(w)
-			defer putRRW(rrw)
+			rw := respwriter.Get(w)
+			defer respwriter.Put(rw)
 
 			// capture the start time of the request
 			startTime := time.Now()
 
 			// execute next http handler
-			next.ServeHTTP(rrw.writer, r)
+			next.ServeHTTP(rw.ResponseWriter, r)
 
 			// determine success/failure
-			outcome := getOutcome(rrw.statusCode)
+			outcome := cfg.OutcomeFunc(rw.StatusCode)
 
 			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
 
