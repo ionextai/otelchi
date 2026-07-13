@@ -24,3 +24,14 @@ $ go get github.com/ionext/otelchi
 ## Examples
 
 See [examples](./examples) for details.
+
+## Metrics
+
+The `metric` package provides OpenTelemetry semantic-convention compliant HTTP server metric middleware:
+
+- `http.server.request.duration`
+- `http.server.active_requests`
+- `http.server.request.body.size`
+- `http.server.response.body.size`
+
+Legacy metric middleware for `request_duration_millis`, `requests_inflight`, and `response_size_bytes` is still available but deprecated.

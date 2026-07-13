@@ -122,16 +122,18 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 			return func(b []byte) (int, error) {
 				n, err := next(b)
 				rrw.writtenBytes += int64(n)
-
-				rrw.written = true
+				if !rrw.written && n > 0 {
+					rrw.written = true
+				}
 				return n, err
 			}
-		},
-		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+		}, WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
 			return func(code int) {
-				rrw.statusCode = code
-				rrw.written = true
-				next(code)
+				if !rrw.written {
+					rrw.statusCode = code
+					rrw.written = true
+					next(code)
+				}
 			}
 		},
 	})
