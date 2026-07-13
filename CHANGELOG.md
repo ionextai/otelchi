@@ -8,6 +8,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Add `http.status_code` (per OpenTelemetry HTTP metrics semantic conventions) and `outcome` (`success`/`failure`, a fork-specific convenience attribute) to `http.server.request.duration` and `http.server.response.body.size`. Previously these semantic-convention metrics carried neither attribute, so failure rate and status-code breakdowns could only be computed from the deprecated legacy metrics.
+- Add `metric.WithOutcomeFunc` option to override the default 5xx-based success/failure classification per service.
+- Add `metric.WithFilter` (`metric.Filter`) option to exclude noisy routes (health checks, readiness probes) from all metric recordings, mirroring the existing `otelchi.WithFilter` for tracing.
+- Add `metric.WithExplicitBucketBoundaries` option to override the default histogram bucket boundaries used by `http.server.request.duration`.
+
+### Fixed
+
+- Fix internal self-imports and instrumentation scope/tracer name to use this fork's own module path (`github.com/ionextai/otelchi`) instead of upstream `github.com/riandyrn/otelchi`. This also fixes the `metric` package's test suite, which failed to build under `go test ./...` due to the same mismatch. **Note:** this changes the OTel instrumentation scope name/version reported in traces and metrics — dashboards/queries filtering or grouping by scope name need a one-time update.
+- Deduplicate the pooled recording response writer shared by tracing and metric middleware into `internal/respwriter`.
+
+### Changed
+
+- README install instructions now reference `github.com/ionextai/otelchi`.
+
 ## [0.12.3] - 2026-05-03
 
 ### Added
