@@ -119,6 +119,12 @@ func WithExplicitBucketBoundaries(bounds ...float64) Option {
 	})
 }
 
+// NewBaseConfig builds a BaseConfig for serverName, applying opts on top of
+// the defaults: the global meter provider, an OutcomeFunc that classifies
+// only 5xx status codes as "failure" (see getOutcome), and an AttributesFunc
+// that sets `http.method`, `http.scheme`, and (once known) `http.route`. Use
+// the With* options to override any of these before passing the resulting
+// BaseConfig to one of the metric constructors (e.g. NewServerRequestDuration).
 func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
 	cfg := BaseConfig{

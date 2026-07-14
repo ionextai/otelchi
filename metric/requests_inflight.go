@@ -13,7 +13,7 @@ const (
 	metricDescRequestInFlight = "Measures the number of requests currently being processed by the server."
 )
 
-// [RequestInFlight] is a metrics recorder for recording the number of requests in flight.
+// NewRequestInFlight records the number of requests currently being processed by the server.
 //
 // Deprecated: use NewServerActiveRequests instead.
 func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {

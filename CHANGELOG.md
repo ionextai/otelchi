@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - Add `http.status_code` (per OpenTelemetry HTTP metrics semantic conventions) and `outcome` (`success`/`failure`, a fork-specific convenience attribute) to `http.server.request.duration` and `http.server.response.body.size`. Previously these semantic-convention metrics carried neither attribute, so failure rate and status-code breakdowns could only be computed from the deprecated legacy metrics.
+- Add `http.status_code` to the deprecated `request_duration_millis` metric (`metric.NewRequestDurationMillis`), alongside the `outcome` attribute it already carried.
 - Add `metric.WithOutcomeFunc` option to override the default 5xx-based success/failure classification per service.
 - Add `metric.WithFilter` (`metric.Filter`) option to exclude noisy routes (health checks, readiness probes) from all metric recordings, mirroring the existing `otelchi.WithFilter` for tracing.
 - Add `metric.WithExplicitBucketBoundaries` option to override the default histogram bucket boundaries used by `http.server.request.duration`.
