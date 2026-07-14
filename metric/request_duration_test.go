@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/ionextai/otelchi/metric"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+
+	"github.com/ionextai/otelchi/metric"
 )
 
 func TestRequestDurationMillis(t *testing.T) {
@@ -55,6 +57,7 @@ func TestRequestDurationMillis(t *testing.T) {
 	assert.GreaterOrEqual(t, dp.Sum, int64(expLatencyInMillis))
 	assert.Equal(t, uint64(1), dp.Count)
 	assertHasAttribute(t, dp.Attributes, attribute.String("outcome", metric.Success))
+	assertHasIntAttribute(t, dp.Attributes, semconv.HTTPStatusCodeKey, http.StatusOK)
 }
 
 func TestRequestDurationMillis_OutcomeFailure(t *testing.T) {
@@ -77,6 +80,7 @@ func TestRequestDurationMillis_OutcomeFailure(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, hist.DataPoints, 1)
 	assertHasAttribute(t, hist.DataPoints[0].Attributes, attribute.String("outcome", metric.Failure))
+	assertHasIntAttribute(t, hist.DataPoints[0].Attributes, semconv.HTTPStatusCodeKey, http.StatusInternalServerError)
 }
 
 func TestRequestDurationMillis_WithFilter(t *testing.T) {

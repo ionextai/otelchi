@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ionextai/otelchi/internal/respwriter"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+
+	"github.com/ionextai/otelchi/internal/respwriter"
 )
 
 const (
@@ -48,7 +50,11 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 			// determine success/failure
 			outcome := cfg.OutcomeFunc(rw.StatusCode)
 
-			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
+			attributes := append(
+				cfg.AttributesFunc(r),
+				semconv.HTTPStatusCode(rw.StatusCode),
+				attribute.String("outcome", outcome),
+			)
 
 			// record the request duration
 			duration := time.Since(startTime)
