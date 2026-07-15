@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/riandyrn/otelchi/version"
+	"github.com/ionextai/otelchi/version"
 	"github.com/stretchr/testify/assert"
 )
 

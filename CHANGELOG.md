@@ -8,6 +8,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Add `http.status_code` (per OpenTelemetry HTTP metrics semantic conventions) and `outcome` (`success`/`failure`, a fork-specific convenience attribute) to `http.server.request.duration` and `http.server.response.body.size`. Previously these semantic-convention metrics carried neither attribute, so failure rate and status-code breakdowns could only be computed from the deprecated legacy metrics.
+- Add `http.status_code` to the deprecated `request_duration_millis` metric (`metric.NewRequestDurationMillis`), alongside the `outcome` attribute it already carried.
+- Add `metric.WithOutcomeFunc` option to override the default 5xx-based success/failure classification per service.
+- Add `metric.WithFilter` (`metric.Filter`) option to exclude noisy routes (health checks, readiness probes) from all metric recordings, mirroring the existing `otelchi.WithFilter` for tracing.
+- Add `metric.WithExplicitBucketBoundaries` option to override the default histogram bucket boundaries used by `http.server.request.duration`.
+
+### Fixed
+
+- Fix internal self-imports and instrumentation scope/tracer name to use this fork's own module path (`github.com/ionextai/otelchi`) instead of upstream `github.com/riandyrn/otelchi`. This also fixes the `metric` package's test suite, which failed to build under `go test ./...` due to the same mismatch. **Note:** this changes the OTel instrumentation scope name/version reported in traces and metrics — dashboards/queries filtering or grouping by scope name need a one-time update.
+- Deduplicate the pooled recording response writer shared by tracing and metric middleware into `internal/respwriter`.
+
+### Changed
+
+- README install instructions now reference `github.com/ionextai/otelchi`.
+
+## [0.12.3] - 2026-05-03
+
+### Added
+
+- Add OpenTelemetry semantic-convention compliant HTTP server metric middleware for `http.server.request.duration`, `http.server.active_requests`, `http.server.request.body.size`, and `http.server.response.body.size`.
+
+### Deprecated
+
+- Deprecate legacy metric middleware for `request_duration_millis`, `requests_inflight`, and `response_size_bytes`. These remain available for backward compatibility.
+
 ## [0.12.2] - 2025-09-02
 
 ### Fixed
@@ -269,7 +296,8 @@ It contains instrumentation for trace and depends on:
 [#2]: https://github.com/riandyrn/otelchi/pull/2
 [#1]: https://github.com/riandyrn/otelchi/pull/1
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.12.3...HEAD
+[0.12.3]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.3
 [0.12.2]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.2
 [0.12.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.1
 [0.12.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.0

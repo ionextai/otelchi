@@ -7,6 +7,9 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+
+	"github.com/ionextai/otelchi/internal/respwriter"
 )
 
 const (
@@ -15,6 +18,10 @@ const (
 	metricDescRequestDurationMs = "Measures the latency of HTTP requests processed by the server, in milliseconds."
 )
 
+// NewRequestDurationMillis records the latency of HTTP requests processed by
+// the server, in milliseconds.
+//
+// Deprecated: use NewServerRequestDuration instead.
 func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing request duration
 	histogram, err := cfg.Meter.Int64Histogram(
@@ -28,20 +35,29 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// get recording response writer
-			rrw := getRRW(w)
-			defer putRRW(rrw)
+			rw := respwriter.Get(w)
+			defer respwriter.Put(rw)
 
 			// capture the start time of the request
 			startTime := time.Now()
 
 			// execute next http handler
-			next.ServeHTTP(rrw.writer, r)
+			next.ServeHTTP(rw.ResponseWriter, r)
 
 			// determine success/failure
-			outcome := getOutcome(rrw.statusCode)
+			outcome := cfg.OutcomeFunc(rw.StatusCode)
 
-			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
+			attributes := append(
+				cfg.AttributesFunc(r),
+				semconv.HTTPStatusCode(rw.StatusCode),
+				attribute.String("outcome", outcome),
+			)
 
 			// record the request duration
 			duration := time.Since(startTime)

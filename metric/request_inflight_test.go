@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/metric"
+	"github.com/ionextai/otelchi/metric"
 	"github.com/stretchr/testify/require"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -40,6 +40,40 @@ func TestRequestInflight(t *testing.T) {
 
 	// the inflight request should be 0
 	require.Equal(t, int64(0), getCountRequestInFlight(t, reader))
+}
+
+func TestRequestInflight_WithFilter(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	baseCfg := metric.NewBaseConfig(
+		"test-server",
+		metric.WithMeterProvider(provider),
+		metric.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/healthz" }),
+	)
+
+	handlerCalled := false
+	router := chi.NewRouter()
+	router.Use(metric.NewRequestInFlight(baseCfg))
+	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.True(t, handlerCalled)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == "requests_inflight" {
+				t.Fatalf("expected no requests_inflight datapoint for filtered request")
+			}
+		}
+	}
 }
 
 func getCountRequestInFlight(t *testing.T, reader *sdkmetric.ManualReader) int64 {

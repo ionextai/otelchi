@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ionextai/otelchi/internal/respwriter"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -14,6 +15,9 @@ const (
 	metricDescResponseSizeBytes = "Measures the size of the response in bytes."
 )
 
+// NewResponseSizeBytes records the size of the HTTP response body in bytes.
+//
+// Deprecated: use NewServerResponseBodySize instead.
 func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing response size
 	histogram, err := cfg.Meter.Int64Histogram(
@@ -27,22 +31,27 @@ func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !cfg.ShouldRecord(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// get recording response writer
-			rrw := getRRW(w)
-			defer putRRW(rrw)
+			rw := respwriter.Get(w)
+			defer respwriter.Put(rw)
 
 			// execute next http handler
-			next.ServeHTTP(rrw.writer, r)
+			next.ServeHTTP(rw.ResponseWriter, r)
 
 			// determine success/failure
-			outcome := getOutcome(rrw.statusCode)
+			outcome := cfg.OutcomeFunc(rw.StatusCode)
 
 			attributes := append(cfg.AttributesFunc(r), attribute.String("outcome", outcome))
 
 			// record the response size
 			histogram.Record(
 				r.Context(),
-				int64(rrw.writtenBytes),
+				rw.BytesWritten,
 				otelmetric.WithAttributes(
 					attributes...,
 				),

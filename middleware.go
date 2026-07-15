@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 
-	"github.com/felixge/httpsnoop"
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/version"
+	"github.com/ionextai/otelchi/internal/respwriter"
+	"github.com/ionextai/otelchi/version"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -21,7 +20,7 @@ import (
 )
 
 const (
-	tracerName = "github.com/riandyrn/otelchi"
+	tracerName = "github.com/ionextai/otelchi"
 )
 
 func newTracer(tp trace.TracerProvider) trace.Tracer {
@@ -61,51 +60,6 @@ type traceware struct {
 	serverName string
 	tracer     oteltrace.Tracer
 	handler    http.Handler
-}
-
-type recordingResponseWriter struct {
-	writer  http.ResponseWriter
-	written bool
-	status  int
-}
-
-var rrwPool = &sync.Pool{
-	New: func() interface{} {
-		return &recordingResponseWriter{}
-	},
-}
-
-func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
-	rrw := rrwPool.Get().(*recordingResponseWriter)
-	rrw.written = false
-	rrw.status = http.StatusOK
-	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
-		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
-			return func(b []byte) (int, error) {
-				if !rrw.written {
-					rrw.written = true
-				}
-				return next(b)
-			}
-		},
-		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
-			return func(statusCode int) {
-				if !rrw.written {
-					rrw.written = true
-					rrw.status = statusCode
-					// only call next WriteHeader when header is not written yet
-					// this is to prevent superfluous WriteHeader call
-					next(statusCode)
-				}
-			}
-		},
-	})
-	return rrw
-}
-
-func putRRW(rrw *recordingResponseWriter) {
-	rrw.writer = nil
-	rrwPool.Put(rrw)
 }
 
 // ServeHTTP implements the http.Handler interface. It does the actual
@@ -191,12 +145,12 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get recording response writer
-	rrw := getRRW(w)
-	defer putRRW(rrw)
+	rrw := respwriter.Get(w)
+	defer respwriter.Put(rrw)
 
 	// execute next http handler
 	r = r.WithContext(ctx)
-	tw.handler.ServeHTTP(rrw.writer, r)
+	tw.handler.ServeHTTP(rrw.ResponseWriter, r)
 
 	// set span name & http route attribute if route pattern cannot be determined
 	// during span creation
@@ -215,10 +169,10 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// set status code attribute
-	span.SetAttributes(semconv.HTTPStatusCode(rrw.status))
+	span.SetAttributes(semconv.HTTPStatusCode(rrw.StatusCode))
 
 	// set span status
-	span.SetStatus(httpconv.ServerStatus(rrw.status))
+	span.SetStatus(httpconv.ServerStatus(rrw.StatusCode))
 }
 
 func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
