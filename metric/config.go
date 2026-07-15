@@ -168,7 +168,7 @@ func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 }
 
 func getOutcome(statusCode int) string {
-	if statusCode >= 500 {
+	if statusCode >= 400 {
 		return Failure
 	}
 	return Success
